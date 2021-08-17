@@ -461,7 +461,7 @@ void zennerParserPrepair()
     Serial.println(binPlatformData, BIN);
     Serial.println("#########");
   */
-  //Serial.println("#########---Zenner-Switch-Done---####");
+  Serial.println("[Zenner-Convert]: Done");
 }
 
 
@@ -528,8 +528,8 @@ int connectDHT()
         decToBinary(sensorDataTemperature);
         //Convert Binary for Zenner-Logic in binPlatformData
         zennerParserPrepair();
-        binaryTemperature = binPlatformData;      
-        
+        binaryTemperature = binPlatformData;
+
       }
     }
     /////////////////***************--Get humidity event and print its value--****************/////////////////
@@ -553,7 +553,7 @@ int connectDHT()
         //Convert Binary for Zenner-Logic in binPlatformData
         zennerParserPrepair();
         binaryHumidity = binPlatformData;
-        
+
       }
     }
   }
@@ -588,10 +588,12 @@ int connectSGP30()
   binPlatformData = 0b0000000000000000;
   //First fifteen readings will be
   //in normal situation [output]: CO2: 400 ppm  TVOC: 0 ppb
-  Serial.println("[Messurment]:Getting Data from SGP30\n");
+  Serial.println("[Messurment]:Getting Data from SGP30");
   delay(500); //Wait 1 second
   //measure CO2 and TVOC levels
   if (messureCO2 == true) {
+    binSensorData = 0b0000000000000000;
+    binPlatformData = 0b0000000000000000;
     mySensor.measureAirQuality();
     sensorDataCO2 = mySensor.CO2;
     //Convert Deicimal Value in Binary in binSensorData
@@ -605,6 +607,8 @@ int connectSGP30()
     messureCO2 = false;
   }
   if (messureCO2 == false) {
+    binSensorData = 0b0000000000000000;
+    binPlatformData = 0b0000000000000000;
     mySensor.measureAirQuality();
     sensorDataVOC = mySensor.TVOC;
     //Convert Deicimal Value in Binary in binSensorData
@@ -657,7 +661,7 @@ int connectBatteryStatus() {
 
 int sensorDataDust = 42999;
 
-int connectDustSesnor() {
+int connectDustSensor() {
   binSensorData = 0b0000000000000000;
   binPlatformData = 0b0000000000000000;
   Serial.println("Connect Dust Sensor");
@@ -709,7 +713,7 @@ extern uint16_t appData[];
 
 void prepareTxFrame(uint8_t port)
 {
-  Serial.println("prepair TX Frame");
+  Serial.println("[Payload]: prepair TX Frame");
 
   //Size of values in Payload as binary
   //depends to uintXX_t appData[]
@@ -751,6 +755,7 @@ void prepareTxFrame(uint8_t port)
   //TODO: convert to binary
   connectSGP30();
   appData[4] = binaryCO2;
+  messureCO2 = false;  
   delay(500);
 
   //Parser: loesemittel: voc
@@ -758,6 +763,7 @@ void prepareTxFrame(uint8_t port)
   //TODO: convert to binary
   connectSGP30();
   appData[5] = binaryVOC;
+  messureCO2 = true;
   delay(50);
 
   /*
@@ -896,7 +902,7 @@ void loop()
     ///////////////--Join--////////////////////
     case DEVICE_STATE_JOIN:
       {
-        Serial.println("Join");
+        Serial.println("[Loop]:Join");
         LoRaWAN.join();
         break;
       }
@@ -956,7 +962,7 @@ void loop()
     ///////////////--Cycle--////////////////////
     case DEVICE_STATE_CYCLE:
       {
-        Serial.println("Cycle");
+        Serial.println("[Loop]:Cycle");
         // Schedule next packet transmission
         txDutyCycleTime = appTxDutyCycle;
         //+ randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
