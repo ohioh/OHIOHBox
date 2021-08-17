@@ -1,35 +1,84 @@
 /*
-   HelTec Automation(TM) LoRaWAN 1.0.2 OTAA example use OTAA, CLASS A
+   ###################################################################################################################
+   ###################################################################################################################
+   OHIOH LoRaWAN-1.0.2 use OTAA, CLASS A
+   Band: 868300000 Hz at DR 5
+   Author: Tjark Ziehm
+   Date: August 2021
+   Version: 1.0.0
+   Hardware: Heltec Wireless Stick && Heltec Wireless Stick Lite (ESP32 BASE)
+   Sensors: DHT22, SGP30 and
+   Peripherals: Display and multicolor LED
+   MultiProcessor Support: YES
 
-   Function summary:
+   Parser-Code:
+   Github-Repo:
 
+   ESP32-Function summary:
+   LoRaWan Settings:
+   You can change some definition in "Commissioning.h" and "LoRaMac-definitions.h"
+
+   General:
    - You can use port 4 to control the LED light.
-
    - If the issued value is 1(ASCII), the lamp will be lit.
-
    - The release value is 2(ASCII) and the light will be turned off.
-
    - use internal RTC(150KHz);
-
    - Include stop mode and deep sleep mode;
-
    - 15S data send cycle;
-
    - Informations output via serial(115200);
-
    - Only ESP32 + LoRa series boards can use this library, need a license
      to make the code run(check you license here: http://www.heltec.cn/search/);
 
-   You can change some definition in "Commissioning.h" and "LoRaMac-definitions.h"
+  LoRaWan-Specification: 1.0.2
+  -> https://lora-alliance.org/resource_hub/lorawan-specification-v1-0-2/
 
-   HelTec AutoMation, Chengdu, China.
-   成都惠利特自动化科技有限公司
-   https://heltec.org
-   support@heltec.cn
+  LoRaWan Package Size:
+  defined here: ->PAYLOAD DATAFRAME BUILDER
+  uintXX_t appData[LORAWAN_APP_DATA_MAX_SIZE];
+  XX should be 16 or 32
+  Files -> ESP32_LoRaWAN.h & ESP32_LoRaWAN.cpp
+  default-setting is uint16_t and is sendind 16 digits per value in payload
+  (The Zenner converter is prepaired for 16 digits [no 32 bits support yet])
+  example 0b0000000000000000; //for integer values till to 65535
 
-  this project also release in GitHub:
-  https://github.com/HelTecAutomation/ESP32_LoRaWAN
+  Sensor-Function summary:
+  COMING SOON
+
+  Code-Function summary:
+  1.  getting Data from Sensor in float or int
+  2.  convert with decToBinary() in binary to binSensorData ( = 0bxxxx xxxx xxxx xxxx)
+  3.  prepair for Zenner Platform Logic ( everytime readable now ) zennerParserPrepair()
+  4.  store in the right messured value
+  5.  repeat till all messurments are done
+  6.  prepair data in the payload with prepareTxFrame() in [loop]:DEVICE_STATE_SEND
+  7.  with LoRaWAN.send(loraWanClass) data will be send and be avaible in Zenner Platform
+
+  Index:
+  0.
+  1.  Tasks
+  2.  Prepair LoRaWan Hardware
+  3.  Sensor-Variables
+  4.  Convert ( Concat and convert in HEX and BIN in PROGRESS )
+  5.  Convert Integer to Binary
+  6.  Zenner Pakage Logic
+  X.  Connect Temperature and Humidity Sensor
+  X.  Connect CO² and VOC Sensor
+  XX. Connect Battery-Status
+  XX. Connect Dust-Sensor
+  XX. Connect Status-Communication
+  xx. Payload DataFrame Builder
+  xx. Connect LED
+  1x. Connect Multiprocess Feature
+  1x. Setup the ESP32
+  1x. Loop the ESP32
+   ###################################################################################################################
+   ###################################################################################################################
 */
+
+/////////////////////////////////////////////////---INCLUDE---//////////////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdlib.h>
 #include <ESP32_LoRaWAN.h>
@@ -44,13 +93,21 @@
 #include <string>
 
 
-///////////////TASKS///////////////////////////////////////////////////////////////
-TaskHandle_t Task1;
-TaskHandle_t Task2;
-TaskHandle_t Task3;
-
+////////////////////////////////////////////////---TASKS---///////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+TaskHandle_t Task1; //Core specific Task 1
+TaskHandle_t Task2; //Core specific Task 2
+TaskHandle_t Task3; //Core specific Task 3
 SGP30 mySensor; //create an object of the SGP30 class
-//////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////---PREPAIR LORAWAN HARDWARE---//////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 /*license for Heltec ESP32 LoRaWan, quary your ChipID relevant license: http://resource.heltec.cn/search */
 uint32_t license[4] = {0x3BF994AB, 0x6E5C029E, 0xDC3BE428, 0x28205375};
 
@@ -126,40 +183,52 @@ LoRaMacRegion_t loraWanRegion = ACTIVE_REGION;
 
 #define LEDPin 25 //LED light
 
-////////////////////////////////--Sensor-Variables--//////////////////////////////////
-// packet_version and Selftest:
-//First Digit is the Type, second the Selftest-Status 0-F
-unsigned int packageState = 0;
-uint32_t binaryPackageState = 0b110;
+
+//////////////////////////////////////////////---SENSOR-VARIABLES---///////////////////////////////////////////////////////////////////
+//
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//Hardware status and device communication
+unsigned int hardwareState = 0;
+uint16_t binaryHardwareStatus = 0b1100110011001100; //52428 and CCCC
 
 // Battery-Power
-char value = 'ABBA';
 unsigned int batteryStatus = 65;
-//unsigned long batteryStatus = std::bitset<8> (value){value, /*length*/4, /*0:*/'A', /*1:*/'B'};
-uint8_t binaryBatteryStatus = batteryStatus;
+uint16_t binaryBatteryStatus = 0b1100110011001100; //52428 and CCCC
 
 unsigned int sensorDataTemperature = 0;
-uint32_t binaryTemperature = 0b0;
+uint16_t binaryTemperature = 0b0000000000000000; //0 and CCCC
+
 int sensorDataHumidity = 0;
-uint32_t binaryHumidity = 0b0;
+uint16_t binaryHumidity = 0b0000000000000000; //0 and CCCC
 
 unsigned int sensorDataVOC = 0;
-uint32_t binaryVOC = 0b111110100;
+uint16_t binaryVOC = 0b1100110011001100; //52428 and CCCC
+
 unsigned int sensorDataCO2 = 0;
-uint32_t binaryCO2 = 0b111110;
+uint16_t binaryCO2 = 0b1100110011001100; //52428 and CCCC
 
 unsigned int sensorDataPM1 = 0;
-uint32_t binaryPM1 = 0b1;
-unsigned int sensorDataPM25 = 0;
-uint32_t binaryPM25 = 0b11;
-unsigned int sensorDataPM4 = 0;
-uint32_t binaryPM4 = 0b100;
-unsigned int sensorDataPM5 = 0;
-uint32_t binaryPM5 = 0b101;
-unsigned int sensorDataPM10 = 0;
-uint32_t binaryPM10 = 0b1010;
+uint16_t binaryPM1 = 0b1100110011001100; //52428 and CCCC
 
-///////////////////////////////////////////////--Convert--///////////////////////////////////////////////
+unsigned int sensorDataPM25 = 0;
+uint16_t binaryPM25 = 0b1100110011001100; //52428 and CCCC
+
+unsigned int sensorDataPM4 = 0;
+uint16_t binaryPM4 = 0b1100110011001100; //52428 and CCCC
+
+unsigned int sensorDataPM5 = 0;
+uint16_t binaryPM5 = 0b1100110011001100; //52428 and CCCC
+
+unsigned int sensorDataPM10 = 0;
+uint16_t binaryPM10 = 0b1100110011001100; //52428 and CCCC
+
+
+///////////////////////////////////////////////--CONVERTER [in progress]--////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*WORK IN PROGRESS*/
 /*
   #define B_0000    0
@@ -203,17 +272,23 @@ uint32_t binaryPM10 = 0b1010;
   unsigned long int dw = DWORD(1101, 1111, 0100, 0011, 1111, 1101, 0010, 1000); //Equivalent to dw = 3745774888; or dw = 0xdf43fd28;
 */
 
-///////////////////////////////////////////////--Convert Integer to Binary///////////////////////////////////////////////
+
+///////////////////////////////////////////////---CONVERT INTEGER TO BINARY---//////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 constexpr size_t arraySize = 16;
 unsigned int invertedBinaryNum[arraySize] {0};
 unsigned int binaryNum[arraySize] {0};
 uint32_t binValue = 0;
+uint16_t binSensorData = 0b0000000000000000; //for integer values till to 65535
 
 //TODO: change the int to size_t
 void decToBinary(int input)
 {
   // array to store binary number
-  Serial.printf("\nGet Binary for %d \n", input);
+  //Serial.printf("\nGet Binary for %d \n", input);
 
   //Reset of the used Arrays and Values
   //TODO: overwrite tempBinaryArray with value:0
@@ -226,9 +301,9 @@ void decToBinary(int input)
   for (size_t counter = 0; counter < (arraySize); counter++) {
     int printValue = 0;
     printValue = invertedBinaryNum[counter];
-    Serial.println("Value in invertedBinaryNum:");
-    Serial.print(printValue);
-    Serial.println("\n");
+    //Serial.println("Value in invertedBinaryNum:");
+    //Serial.print(printValue);
+    //Serial.println("\n");
   }
 
   //TODO: overwrite BinaryArray with value:0
@@ -241,9 +316,9 @@ void decToBinary(int input)
   for (size_t counter = 0; counter < (arraySize); counter++) {
     int printValue = 0;
     printValue = binaryNum[counter];
-    Serial.println("Value in BinaryNum:");
-    Serial.print(printValue);
-    Serial.println("\n");
+    //Serial.println("Value in BinaryNum:");
+    //Serial.print(printValue);
+    //Serial.println("\n");
   }
 
   //TODO: overwrite binValue with 0
@@ -271,51 +346,56 @@ void decToBinary(int input)
     arraySizeCounter++;  //length of value
   }
 
-  Serial.print("\n#################\n");
-  Serial.print("Values in Array:\n");
-  Serial.print(arraySizeCounter);
-  Serial.print("\n#################\n");
+  //Serial.print("\n#################\n");
+  //Serial.print("Values in Array:\n");
+  //Serial.print(arraySizeCounter);
+  //Serial.print("\n#################\n");
 
-  // safing & printing binary array in reverse ("right"->EU) order
+  // safing & printing binary array in reverse ("right" -> EU) order
   for (size_t counter = arraySizeCounter; counter >= 1; counter--)
   {
     int arrayPlace = arraySizeCounter - counter;
     binaryNum[arrayPlace] = invertedBinaryNum[counter - 1];
-    Serial.print("\n####Step:####\n");
-    Serial.println(counter);
-    Serial.print("\n");
-    Serial.println(arrayPlace);
-    Serial.print("\n");
-    Serial.println(invertedBinaryNum[counter - 1]);
-    Serial.print("\n");
-    Serial.println(binaryNum[arrayPlace]);
-    Serial.print("\n########\n");
+    /*
+      Serial.print("\n####Step:####\n");
+      Serial.println(counter);
+      Serial.print("\n");
+      Serial.println(arrayPlace);
+      Serial.print("\n");
+      Serial.println(invertedBinaryNum[counter - 1]);
+      Serial.print("\n");
+      Serial.println(binaryNum[arrayPlace]);
+      Serial.print("\n########\n");
+    */
   }
 
   //Write bin Array Values with bitWrite to binSensorData
-  uint16_t binSensorData = 0b0000000000000000; //for integer values till to 65535
-  size_t writeSpace = arraySizeCounter-1;
-  
-  Serial.print("\n########\n");
-  Serial.print(writeSpace);
-  Serial.print("\n########\n");
+
+  size_t writeSpace = arraySizeCounter - 1;
+
+  //Serial.print("\n########\n");
+  //Serial.print(writeSpace);
+  //Serial.print("\n########\n");
 
   for (size_t binDataPlace = 0; binDataPlace < arraySizeCounter; binDataPlace ++) {
     byte transmitValue = invertedBinaryNum[binDataPlace];
-    Serial.print("\n########\n");
-    Serial.print("Transmitted Value:\n");
-    Serial.print(transmitValue);
-    Serial.print("\n");
-    Serial.print(writeSpace);
-    Serial.print("\n########\n");
+    /*
+      Serial.print("\n########\n");
+      Serial.print("Transmitted Value:\n");
+      Serial.print(transmitValue);
+      Serial.print("\n");
+      Serial.print(writeSpace);
+      Serial.print("\n########\n");
+    */
     bitWrite(binSensorData, binDataPlace, transmitValue);  //Schreibe 1 auf das niedrigstwertige Bit von x
     writeSpace = writeSpace - 1;
   }
+  /*
   Serial.print("\n########\n");
   Serial.print("BinValue\n");
   Serial.println(binSensorData);
   Serial.print("\n########\n");
-
+  */
   //TODO: writing the binValue with an "0b"
   // test
   /*
@@ -329,66 +409,357 @@ void decToBinary(int input)
 }
 
 
+///////////////////////////////////////////---ZENNER PLATFORM LOGIC---/////////////////////////////////////////////////////////////////////
+//
+//  the number 6500 ( FD E8 ) gets E8DF in the Zenner Package View.
+//  This is changed in this logic, because the transmitted value is switched to read logic of zenner-IoT
+//  The Read out for the parser will be again the right number
+//  binPlatformData is overwritten in each call -> use it convert the messurment
+//  The Zenner converter is prepaired for 16 digits
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////--DataFrame--///////////////////////////////////////////////
-extern uint32_t appData[];
-/*
-        status: state,
-        battery: bat,
-        temperature: temp,
-        humidity: hum,
-        codioxid: co2
-        loesemittel: voc,
-        feinstaub1: pm1,
-        feinstaub25: pm25,
-        feinstaub4: pm4,
-        feinstaub5: pm5,
-        feinstaub10: pm10
-*/
+uint16_t binPlatformData = 0b0000000000000000; //for integer values till to 65535
+
+void zennerParserPrepair()
+{
+  /*
+    Serial.println("#########---Zenner-Logic---#");
+    Serial.println("Get bin data:");
+    Serial.println(binSensorData, BIN);
+    Serial.println("#########");
+  */
+  binPlatformData = 0b0000000000000000;
+  int writeDataPlace = 15;
+  /*
+    Serial.println(binSensorData);
+    Serial.println(binPlatformData);
+  */
+  //Serial.println("#########---Zenner-Switch-1---##");
+  // First (left Block switch to right block)
+  for (size_t binDataPlace = 15; binDataPlace >= 8; binDataPlace --) {
+    byte transmitValue = bitRead(binSensorData, binDataPlace);
+    //Serial.println(transmitValue);
+    bitWrite(binPlatformData, (binDataPlace - 8), transmitValue); //Schreibe 1 auf das niedrigstwertige Bit von x
+  }
+  /*
+  Serial.println("#########");
+  Serial.println(binPlatformData, BIN);
+  Serial.println("#########");
+  */
+  //Serial.println("#########---Zenner-Switch-2---###");
+  //Second (right Block switch to left)
+  //Thi Output is inverted
+  for (size_t binDataPlace = 0; binDataPlace <= 7; binDataPlace ++) {
+    byte transmitValue = bitRead(binSensorData, binDataPlace);
+    //Serial.println(transmitValue);
+    bitWrite(binPlatformData, (binDataPlace + 8), transmitValue); //Schreibe 1 auf das niedrigstwertige Bit von x
+
+  }
+  /*
+  Serial.println("#########");
+  Serial.println(binPlatformData, BIN);
+  Serial.println("#########");
+  */
+  //Serial.println("#########---Zenner-Switch-Done---####");
+}
+
+
+/////////////////////////////////////////---CONNECT TEMPERATURE AND HUMIDITY SENSOR---///////////////////////////////////////////////////
+//  Variables:
+//    unsigned int sensorDataTemperature = 0;
+//    uint16_t binaryTemperature = 0b1100110011001100;
+//
+//    int sensorDataHumidity = 0;
+//    uint16_t binaryHumidity = 0b1100110011001100;
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define DHTPIN 33 // Digital pin connected to the DHT sensor
+
+// Uncomment the type of sensor in use:
+//#define DHTTYPE    DHT11     // DHT 11
+#define DHTTYPE DHT22 // DHT 22 (AM2302)
+//#define DHTTYPE    DHT21     // DHT 21 (AM2301)
+
+DHT_Unified dht(DHTPIN, DHTTYPE);
+uint32_t delayMS = 50;
+bool DHTactivated = false;
+bool messureTemperature = true;  //true means only Temperature, false means only Humidity
+
+int connectDHT()
+{
+  binSensorData = 0b0000000000000000;
+  binPlatformData = 0b0000000000000000;
+  Serial.println("[Messurment]:Getting Data from DHT22\n");
+  dht.begin();
+  sensors_event_t event;
+  if (DHTactivated == false)
+  {
+
+    DHTactivated = true;
+    Serial.println("[Messurment]:DHT22 activated\n");
+  }
+  /////////////////***************--Get temperature event and print its value--****************/////////////////
+  else if (DHTactivated == true)
+  {
+    if ( messureTemperature == true) {
+      delay(delayMS );
+      sensor_t sensor;
+      // Delay between measurements.
+      delay(delayMS);
+      // Get temperature event and print its value.
+      //sensors_event_t event;
+      dht.temperature().getEvent(&event);
+      delay(delayMS);
+
+      if (isnan(event.temperature))
+      {
+        Serial.println(F("[Messurment]:Error reading temperature!"));
+      }
+      else
+      {
+        Serial.print(F("[Messurment]:Temperature: "));
+        delay(50);
+        sensorDataTemperature = event.temperature;
+        delay(500);
+        Serial.print(sensorDataTemperature);
+        Serial.println(F("°C"));
+        //Convert Deicimal Value in Binary in binSensorData
+        decToBinary(sensorDataTemperature);
+        //Convert Binary for Zenner-Logic in binPlatformData
+        zennerParserPrepair();
+        binaryTemperature = binPlatformData;
+
+      }
+    }
+    /////////////////***************--Get humidity event and print its value--****************/////////////////
+    if (messureTemperature == false) {
+      //sensors_event_t event;
+      dht.humidity().getEvent(&event);
+      delay(delayMS);
+      if (isnan(event.relative_humidity))
+        {
+          Serial.println(F("[Messurment]:Error reading humidity!"));
+        }
+      else
+        {
+        Serial.print(F("[Messurment]:Humidity: "));
+        sensorDataHumidity = event.relative_humidity;
+        Serial.print(event.relative_humidity);
+        Serial.println(F("%\n"));
+        //Convert Deicimal Value in Binary in binSensorData
+        decToBinary(sensorDataHumidity);
+        //Convert Binary for Zenner-Logic in binPlatformData
+        zennerParserPrepair();
+        binaryHumidity = binPlatformData;
+      }
+    }
+  else
+    {
+      Serial.println("DHT not working");
+    }
+  }
+}
+
+
+/////////////////////////////////////////////---CONNECT CO² AND VOC SENSOR---//////////////////////////////////////////////////////////
+//  Variables:
+//    unsigned int sensorDataVOC = 0;
+//    uint16_t binaryVOC = 0b1100110011001100;
+//
+//    unsigned int sensorDataCO2 = 0;
+//    uint16_t binaryCO2 = 0b1100110011001100;
+//
+//    CO2: 375-450   ppm is normal outdoor air ( ppm = parts per million )
+//         450-800   ppm good air quality
+//         800-1000  ppm acceptable
+//         1000-1500 ppm infection risc high
+//         1000-2000 ppm infection risc very high
+//         2000-5000 ppm without infection risk not longer then 8 hours
+//         5000-6000 ppm Questionable for health
+//         6000+     ppm high risk for health (100k dangerous for life, 200k deadly)
+//         
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool messureCO2 = true; // true means only CO2, false means only VOC
+
+int connectSGP30()
+{
+  binSensorData = 0b0000000000000000;
+  binPlatformData = 0b0000000000000000;
+  //First fifteen readings will be
+  //in normal situation [output]: CO2: 400 ppm  TVOC: 0 ppb
+  Serial.println("[Messurment]:Getting Data from SGP30\n");
+  delay(500); //Wait 1 second
+  //measure CO2 and TVOC levels
+  if (messureCO2 == true){
+    mySensor.measureAirQuality();
+    sensorDataCO2 = mySensor.CO2;
+    //Convert Deicimal Value in Binary in binSensorData
+    decToBinary(sensorDataCO2);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryCO2 = binPlatformData;
+    Serial.print("[Messurment]:CO2: ");
+    Serial.print(sensorDataCO2);
+    Serial.print(" ppm\n");
+  }
+  if (messureCO2 == false){
+    mySensor.measureAirQuality();
+    sensorDataVOC = mySensor.TVOC;
+    //Convert Deicimal Value in Binary in binSensorData
+    decToBinary(sensorDataVOC);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryVOC = binPlatformData;
+    Serial.print("[Messurment]:tTVOC:");
+    Serial.print(sensorDataVOC);
+    Serial.print(" ppb\n");
+  }
+}
+
+
+////////////////////////////////////////////////////---CONNECT BATTERY STATUS---/////////////////////////////////////////////////////////////
+//  Variables:
+//    unsigned int batteryStatus; -> uint16_t binaryBatteryStatus;
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TODO: get battery Status
+
+int connectBatteryStatus() {
+  binSensorData = 0b0000000000000000;
+  binPlatformData = 0b0000000000000000;
+  batteryStatus = 65;
+  //Convert Deicimal Value in Binary in binSensorData
+  decToBinary(batteryStatus);
+  //Convert Binary for Zenner-Logic in binPlatformData
+  zennerParserPrepair();
+  binaryBatteryStatus = binPlatformData;
+  /*
+    uint16_t ADC_voltage = analogRead(37);
+    digitalWrite(Vext, HIGH);
+    ADC_Process( ADC_voltage );
+  */
+}
+
+
+////////////////////////////////////////////////////---CONNECT DUST SENSOR---//////////////////////////////////////////////////////////////
+//  Variables:
+//    unsigned int sensorDataPM1; -> uint16_t binaryPM1;
+//    unsigned int sensorDataPM25; -> uint16_t binaryPM25;
+//    unsigned int sensorDataPM4; -> uint16_t binaryPM4;
+//    unsigned int sensorDataPM5; -> uint16_t binaryPM5;
+//    unsigned int sensorDataPM10; -> uint16_t binaryPM10;
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TODO: get Dust Sensor Data
+
+int sensorDataDust = 42999;
+
+int connectDustSesnor() {
+  binSensorData = 0b0000000000000000;
+  binPlatformData = 0b0000000000000000;
+  Serial.println("Connect Dust Sensor");
+  batteryStatus = 65;
+  //Convert Deicimal Value in Binary in binSensorData
+  decToBinary(batteryStatus);
+  //Convert Binary for Zenner-Logic in binPlatformData
+  zennerParserPrepair();
+  binaryBatteryStatus = binPlatformData;
+}
+
+
+////////////////////////////////////////////////////---CONNECT STATUS COMMUNICATION---///////////////////////////////////////////////////
+//  Variables:
+//    hardwareState;
+//    binaryHardwareStatus;
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TODO: get Status Communication
+
+int connectStatusCommunication() {
+  binSensorData = 0b0000000000000000;
+  binPlatformData = 0b0000000000000000;
+  Serial.println("Connect Status Communication");
+  hardwareState = 1;
+  //Convert Deicimal Value in Binary in binSensorData
+  decToBinary(hardwareState);
+  //Convert Binary for Zenner-Logic in binPlatformData
+  zennerParserPrepair();
+  binaryHardwareStatus = binPlatformData;
+}
+
+
+///////////////////////////////////////---PAYLOAD DATAFRAME BUILDER---/////////////////////////////////////////////////////////////////
+//  Collecting Data from Sensors and ESP32 and prepair this values for payload transfer
+//
+//  Called Variables:
+//    1.binaryHardwareStatus    7.PM1           13.qmPM2.5[soon]
+//    2.binaryBatteryStatus     8.PM2.5         14.qmPM4[soon]
+//    3.binaryTemperature       9.PM4           15.qmPM5[soon]
+//    4.binaryHumidity         10.PM5           16.qmPM10[soon]
+//    5.binaryCO2              11.PM10
+//    6.binaryVOC              12.qmPM1[soon]
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern uint16_t appData[];
 
 void prepareTxFrame(uint8_t port)
 {
   Serial.println("prepair TX Frame");
 
   //Size of values in Payload as binary
-  appDataSize = 20; //AppDataSize max value is 64 -> each number is for 2 digits
+  //depends to uintXX_t appData[]
+  appDataSize = 12; //AppDataSize max value is 64 -> each number is for 2 digits
+  //Important: AppDataSize representate the number of transmitted bytes
 
   //Parser: status: state
   //TODO: get actual state here
   //TODO: convert to binary
-  appData[0] = binaryPackageState;
+  connectStatusCommunication();
+  appData[0] = binaryHardwareStatus;
   delay(50);
 
   //Parser: battery: bat
   //TODO: get actual battery state here
   //TODO: convert to binary
+  connectBatteryStatus();
   appData[1] = binaryBatteryStatus;
   delay(50);
 
   //Parser: temperature: temp,
   //TODO: get temperature
   //TODO: convert to binary
+  messureTemperature = true;
   connectDHT();
   appData[2] = binaryTemperature;
-  ;
-  delay(50);
+  delay(500);
 
   //Parser: humidity: hum
   //TODO: get humidity
   //TODO: convert to binary
+  messureTemperature = false;
+  connectDHT();
   appData[3] = binaryHumidity;
   delay(50);
 
   //Parser: codioxid: co2
   //TODO: get CO2
   //TODO: convert to binary
+  messureCO2 = true;
   connectSGP30();
   appData[4] = binaryCO2;
-  delay(50);
+  delay(500);
 
   //Parser: loesemittel: voc
   //TODO: get VOC
   //TODO: convert to binary
+  messureCO2 = false;
+  connectSGP30();
   appData[5] = binaryVOC;
   delay(50);
 
@@ -421,98 +792,32 @@ void prepareTxFrame(uint8_t port)
   */
 }
 
-////////////////////////////////--Connect Temperature and Humidity Sensor--//////////////////////////////////////////////
-#define DHTPIN 33 // Digital pin connected to the DHT sensor
 
-// Uncomment the type of sensor in use:
-//#define DHTTYPE    DHT11     // DHT 11
-#define DHTTYPE DHT22 // DHT 22 (AM2302)
-//#define DHTTYPE    DHT21     // DHT 21 (AM2301)
 
-DHT_Unified dht(DHTPIN, DHTTYPE);
-uint32_t delayMS = 50;
-bool DHTactivated = false;
+////////////////////////////////////////////////////---CONNECT LED---////////////////////////////////////////////////////////////////
+//  Variables:
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int connectDHT()
-{
-  Serial.println("[Messurment]:Getting Data from DHT22\n");
-  dht.begin();
-  if (DHTactivated == false)
-  {
+int connectLED() {
 
-    DHTactivated = true;
-    Serial.println("[Messurment]:DHT22 activated\n");
-  }
-  //////////////--Get temperature event and print its value--/////////////////////////
-  else if (DHTactivated == true)
-  {
-    delay(delayMS );
-    sensor_t sensor;
-    // Delay between measurements.
-    delay(delayMS);
-    // Get temperature event and print its value.
-    sensors_event_t event;
-    dht.temperature().getEvent(&event);
-    delay(delayMS );
-
-    if (isnan(event.temperature))
-    {
-      Serial.println(F("[Messurment]:Error reading temperature!"));
-    }
-    else
-    {
-      Serial.print(F("[Messurment]:Temperature: "));
-      sensorDataTemperature = event.temperature;
-      Serial.print(event.temperature);
-      Serial.println(F("°C"));
-    }
-
-    //////////////--Get humidity event and print its value--/////////////////////////
-    dht.humidity().getEvent(&event);
-    delay(delayMS);
-    if (isnan(event.relative_humidity))
-    {
-      Serial.println(F("[Messurment]:Error reading humidity!"));
-    }
-    else
-    {
-      Serial.print(F("[Messurment]:Humidity: "));
-      sensorDataHumidity = event.relative_humidity;
-      Serial.print(event.relative_humidity);
-      Serial.println(F("%\n"));
-    }
-  }
-  else
-  {
-    Serial.println("DHT not working");
-  }
 }
 
-/////////////////////////////////////--Connect CO² and VOC Sensor--////////////////////////////////////////////////////
-int connectSGP30()
-{
-  //First fifteen readings will be
-  //in normal situation [output]: CO2: 400 ppm  TVOC: 0 ppb
-  Serial.println("[Messurment]:Getting Data from SGP30\n");
-  delay(1000); //Wait 1 second
-  //measure CO2 and TVOC levels
-  mySensor.measureAirQuality();
-  sensorDataVOC = mySensor.TVOC;
-  sensorDataCO2 = mySensor.CO2;
-  Serial.print("[Messurment]:CO2: ");
-  Serial.print(sensorDataCO2);
-  Serial.println("\n");
-  Serial.print("[Messurment]:tTVOC: ");
-  Serial.print(sensorDataVOC);
-  Serial.println(" ppb\n");
+////////////////////////////////////////////////////---CONNECT MULTIPROCESSOR FEATURE---/////////////////////////////////////////////
+//  Variables:
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int connectProcessors() {
+
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//Battery-Power
-/////////////////////////////////////////////////////////////////////////////////////////
-//TODO: get battery Status
 
-/////////////////////////////////--Setup--//////////////////////////////////////////////////
+////////////////////////////////////////////////////////---SETUP---///////////////////////////////////////////////////////////////////
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
@@ -556,8 +861,12 @@ void setup()
   */
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////---LOOP---/////////////////////////////////////////////////////////////////////////
 // The loop function is called in an endless loop
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void loop()
 {
   //Test-Area
@@ -574,113 +883,104 @@ void loop()
   */
   //connectDHT();
 
-  Serial.println("\n########################################\n");
-  int number = 65000;
-  Serial.println(number);
-  Serial.println("\n########################################\n");
 
-  decToBinary(number);
-  delay(4000);
+  switch (deviceState)
+  {
+    ///////////////--Initialize--////////////////////
+    case DEVICE_STATE_INIT:
+      {
+#if (LORAWAN_DEVEUI_AUTO)
+        LoRaWAN.generateDeveuiByChipID();
+#endif
+        LoRaWAN.init(loraWanClass, loraWanRegion);
+        break;
+      }
 
-  //  switch (deviceState)
-  //  {
-  //    ///////////////--Initialize--////////////////////
-  //    case DEVICE_STATE_INIT:
-  //      {
-  //#if (LORAWAN_DEVEUI_AUTO)
-  //        LoRaWAN.generateDeveuiByChipID();
-  //#endif
-  //        LoRaWAN.init(loraWanClass, loraWanRegion);
-  //        break;
-  //      }
-  //
-  //    ///////////////--Join--////////////////////
-  //    case DEVICE_STATE_JOIN:
-  //      {
-  //        Serial.println("Join");
-  //        LoRaWAN.join();
-  //        break;
-  //      }
-  //
-  //    ///////////////--State send--////////////////////
-  //    case DEVICE_STATE_SEND:
-  //      {
-  //        Serial.println("########################################\n");
-  //        Serial.println("########################################\n");
-  //        Serial.println("Send payload:");
-  //        digitalWrite(Vext, LOW);
-  //        delay(50);
-  //        Serial.println("########################################\n");
-  //        Serial.println("Check Values from Sensor\n");
-  //        Serial.println("Package State:\n");
-  //        Serial.println(packageState);
-  //        Serial.println("\n");
-  //        Serial.println(binaryPackageState);
-  //
-  //        Serial.println("\nBattery Status:\n");
-  //        Serial.println(batteryStatus);
-  //        Serial.println("\n");
-  //        Serial.println(binaryBatteryStatus);
-  //
-  //        Serial.println("\nTemperature:\n");
-  //        Serial.println(sensorDataTemperature);
-  //        Serial.println("\n");
-  //        Serial.println(binaryTemperature);
-  //
-  //        Serial.println("\nHumidity:\n");
-  //        Serial.println(sensorDataHumidity);
-  //        Serial.println("\n");
-  //        Serial.println(binaryHumidity);
-  //
-  //        Serial.println("\nCO2:\n");
-  //        Serial.println(sensorDataCO2);
-  //        Serial.println("\n");
-  //        Serial.println(binaryCO2);
-  //
-  //        Serial.println("\nVOC:\n");
-  //        Serial.println(sensorDataVOC);
-  //        Serial.println("\n");
-  //        Serial.println(binaryVOC);
-  //        Serial.println("\n########################################\n");
-  //        Serial.println("########################################\n");
-  //        delay(500);
-  //        prepareTxFrame(appPort);
-  //
-  //        /*
-  //            uint16_t ADC_voltage = analogRead(37);
-  //            digitalWrite(Vext, HIGH);
-  //            ADC_Process( ADC_voltage );
-  //        */
-  //        LoRaWAN.send(loraWanClass);
-  //        deviceState = DEVICE_STATE_CYCLE;
-  //        break;
-  //      }
-  //
-  //    ///////////////--Cycle--////////////////////
-  //    case DEVICE_STATE_CYCLE:
-  //      {
-  //        Serial.println("Cycle");
-  //        // Schedule next packet transmission
-  //        txDutyCycleTime = appTxDutyCycle;
-  //        //+ randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
-  //        LoRaWAN.cycle(txDutyCycleTime);
-  //        deviceState = DEVICE_STATE_SLEEP;
-  //        break;
-  //      }
-  //
-  //    ///////////////--Sleep--////////////////////
-  //    case DEVICE_STATE_SLEEP:
-  //      {
-  //        LoRaWAN.sleep(loraWanClass, debugLevel);
-  //        break;
-  //      }
-  //
-  //    ///////////////--default--////////////////////
-  //    default:
-  //      {
-  //        deviceState = DEVICE_STATE_INIT;
-  //        break;
-  //      }
-  //  }
+    ///////////////--Join--////////////////////
+    case DEVICE_STATE_JOIN:
+      {
+        Serial.println("Join");
+        LoRaWAN.join();
+        break;
+      }
+
+    ///////////////--State send--////////////////////
+    case DEVICE_STATE_SEND:
+      {
+        /*
+          Serial.println("########################################\n");
+          Serial.println("########################################\n");
+          Serial.println("Send payload:");
+          digitalWrite(Vext, LOW);
+          delay(50);
+          Serial.println("########################################\n");
+          Serial.println("Check Values from Sensor\n");
+          Serial.println("Hardware State:\n");
+          Serial.println(hardwareState);
+          Serial.println("\n");
+          Serial.println(binaryHardwareStatus);
+
+          Serial.println("\nBattery Status:\n");
+          Serial.println(batteryStatus);
+          Serial.println("\n");
+          Serial.println(binaryBatteryStatus);
+
+          Serial.println("\nTemperature:\n");
+          Serial.println(sensorDataTemperature);
+          Serial.println("\n");
+          Serial.println(binaryTemperature);
+
+          Serial.println("\nHumidity:\n");
+          Serial.println(sensorDataHumidity);
+          Serial.println("\n");
+          Serial.println(binaryHumidity);
+
+          Serial.println("\nCO2:\n");
+          Serial.println(sensorDataCO2);
+          Serial.println("\n");
+          Serial.println(binaryCO2);
+
+          Serial.println("\nVOC:\n");
+          Serial.println(sensorDataVOC);
+          Serial.println("\n");
+          Serial.println(binaryVOC);
+          Serial.println("\n########################################\n");
+          Serial.println("########################################\n");
+          delay(500);
+          connectDHT();
+          delay(500);
+        */
+        prepareTxFrame(appPort);
+        LoRaWAN.send(loraWanClass);
+        deviceState = DEVICE_STATE_CYCLE;
+        break;
+      }
+
+    ///////////////--Cycle--////////////////////
+    case DEVICE_STATE_CYCLE:
+      {
+        Serial.println("Cycle");
+        // Schedule next packet transmission
+        txDutyCycleTime = appTxDutyCycle;
+        //+ randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
+        LoRaWAN.cycle(txDutyCycleTime);
+        deviceState = DEVICE_STATE_SLEEP;
+        break;
+      }
+
+    ///////////////--Sleep--////////////////////
+    case DEVICE_STATE_SLEEP:
+      {
+        LoRaWAN.sleep(loraWanClass, debugLevel);
+        break;
+      }
+
+    ///////////////--default--////////////////////
+    default:
+      {
+        deviceState = DEVICE_STATE_INIT;
+        break;
+      }
+  }
 
 }
