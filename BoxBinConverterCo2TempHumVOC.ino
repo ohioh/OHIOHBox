@@ -391,10 +391,10 @@ void decToBinary(int input)
     writeSpace = writeSpace - 1;
   }
   /*
-  Serial.print("\n########\n");
-  Serial.print("BinValue\n");
-  Serial.println(binSensorData);
-  Serial.print("\n########\n");
+    Serial.print("\n########\n");
+    Serial.print("BinValue\n");
+    Serial.println(binSensorData);
+    Serial.print("\n########\n");
   */
   //TODO: writing the binValue with an "0b"
   // test
@@ -443,9 +443,9 @@ void zennerParserPrepair()
     bitWrite(binPlatformData, (binDataPlace - 8), transmitValue); //Schreibe 1 auf das niedrigstwertige Bit von x
   }
   /*
-  Serial.println("#########");
-  Serial.println(binPlatformData, BIN);
-  Serial.println("#########");
+    Serial.println("#########");
+    Serial.println(binPlatformData, BIN);
+    Serial.println("#########");
   */
   //Serial.println("#########---Zenner-Switch-2---###");
   //Second (right Block switch to left)
@@ -457,9 +457,9 @@ void zennerParserPrepair()
 
   }
   /*
-  Serial.println("#########");
-  Serial.println(binPlatformData, BIN);
-  Serial.println("#########");
+    Serial.println("#########");
+    Serial.println(binPlatformData, BIN);
+    Serial.println("#########");
   */
   //Serial.println("#########---Zenner-Switch-Done---####");
 }
@@ -484,80 +484,77 @@ void zennerParserPrepair()
 
 DHT_Unified dht(DHTPIN, DHTTYPE);
 uint32_t delayMS = 50;
-bool DHTactivated = false;
+bool DHTactivated = true;
 bool messureTemperature = true;  //true means only Temperature, false means only Humidity
 
 int connectDHT()
 {
   binSensorData = 0b0000000000000000;
   binPlatformData = 0b0000000000000000;
-  Serial.println("[Messurment]:Getting Data from DHT22\n");
+  Serial.println("[Messurment]:Getting Data from DHT22");
   dht.begin();
+  delay(50);
   sensors_event_t event;
+  // Delay between measurements.
+  delay(2000);
   if (DHTactivated == false)
   {
 
     DHTactivated = true;
-    Serial.println("[Messurment]:DHT22 activated\n");
+    Serial.print("[Messurment]:DHT22 activated\n");
   }
   /////////////////***************--Get temperature event and print its value--****************/////////////////
-  else if (DHTactivated == true)
+  if (DHTactivated == true)
   {
     if ( messureTemperature == true) {
-      delay(delayMS );
-      sensor_t sensor;
-      // Delay between measurements.
-      delay(delayMS);
-      // Get temperature event and print its value.
-      //sensors_event_t event;
-      dht.temperature().getEvent(&event);
-      delay(delayMS);
-
       if (isnan(event.temperature))
       {
         Serial.println(F("[Messurment]:Error reading temperature!"));
+
       }
       else
       {
+        // Delay between measurements.
+        delay(2000);
+        dht.temperature().getEvent(&event);
+        // Get temperature event and print its value.
         Serial.print(F("[Messurment]:Temperature: "));
         delay(50);
         sensorDataTemperature = event.temperature;
         delay(500);
         Serial.print(sensorDataTemperature);
-        Serial.println(F("°C"));
+        Serial.print(F(" °C\n"));
         //Convert Deicimal Value in Binary in binSensorData
         decToBinary(sensorDataTemperature);
         //Convert Binary for Zenner-Logic in binPlatformData
         zennerParserPrepair();
-        binaryTemperature = binPlatformData;
-
+        binaryTemperature = binPlatformData;      
+        
       }
     }
     /////////////////***************--Get humidity event and print its value--****************/////////////////
     if (messureTemperature == false) {
-      //sensors_event_t event;
+      // Delay between measurements.
+      delay(delayMS);
       dht.humidity().getEvent(&event);
       delay(delayMS);
       if (isnan(event.relative_humidity))
-        {
-          Serial.println(F("[Messurment]:Error reading humidity!"));
-        }
+      {
+        Serial.println(F("[Messurment]:Error reading humidity!"));
+      }
       else
-        {
+      {
         Serial.print(F("[Messurment]:Humidity: "));
         sensorDataHumidity = event.relative_humidity;
         Serial.print(event.relative_humidity);
-        Serial.println(F("%\n"));
+        Serial.print(F("%\n"));
         //Convert Deicimal Value in Binary in binSensorData
         decToBinary(sensorDataHumidity);
         //Convert Binary for Zenner-Logic in binPlatformData
         zennerParserPrepair();
         binaryHumidity = binPlatformData;
+        
       }
-    }
-  else
-    {
-      Serial.println("DHT not working");
     }
   }
 }
@@ -579,7 +576,7 @@ int connectDHT()
 //         2000-5000 ppm without infection risk not longer then 8 hours
 //         5000-6000 ppm Questionable for health
 //         6000+     ppm high risk for health (100k dangerous for life, 200k deadly)
-//         
+//
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -594,7 +591,7 @@ int connectSGP30()
   Serial.println("[Messurment]:Getting Data from SGP30\n");
   delay(500); //Wait 1 second
   //measure CO2 and TVOC levels
-  if (messureCO2 == true){
+  if (messureCO2 == true) {
     mySensor.measureAirQuality();
     sensorDataCO2 = mySensor.CO2;
     //Convert Deicimal Value in Binary in binSensorData
@@ -605,8 +602,9 @@ int connectSGP30()
     Serial.print("[Messurment]:CO2: ");
     Serial.print(sensorDataCO2);
     Serial.print(" ppm\n");
+    messureCO2 = false;
   }
-  if (messureCO2 == false){
+  if (messureCO2 == false) {
     mySensor.measureAirQuality();
     sensorDataVOC = mySensor.TVOC;
     //Convert Deicimal Value in Binary in binSensorData
@@ -617,6 +615,7 @@ int connectSGP30()
     Serial.print("[Messurment]:tTVOC:");
     Serial.print(sensorDataVOC);
     Serial.print(" ppb\n");
+    messureCO2 = true;
   }
 }
 
@@ -734,23 +733,22 @@ void prepareTxFrame(uint8_t port)
   //Parser: temperature: temp,
   //TODO: get temperature
   //TODO: convert to binary
-  messureTemperature = true;
   connectDHT();
   appData[2] = binaryTemperature;
-  delay(500);
+  messureTemperature = false;
+  delay(1000);
 
   //Parser: humidity: hum
   //TODO: get humidity
   //TODO: convert to binary
-  messureTemperature = false;
   connectDHT();
   appData[3] = binaryHumidity;
+  messureTemperature = true;
   delay(50);
 
   //Parser: codioxid: co2
   //TODO: get CO2
   //TODO: convert to binary
-  messureCO2 = true;
   connectSGP30();
   appData[4] = binaryCO2;
   delay(500);
@@ -758,7 +756,6 @@ void prepareTxFrame(uint8_t port)
   //Parser: loesemittel: voc
   //TODO: get VOC
   //TODO: convert to binary
-  messureCO2 = false;
   connectSGP30();
   appData[5] = binaryVOC;
   delay(50);
