@@ -159,7 +159,8 @@ uint32_t binaryPM5 = 0b101;
 unsigned int sensorDataPM10 = 0;
 uint32_t binaryPM10 = 0b1010;
 
-///////////////////////////////////////////////--Convert ///////////////////////////////////////////////
+///////////////////////////////////////////////--Convert--///////////////////////////////////////////////
+/*WORK IN PROGRESS*/
 /*
   #define B_0000    0
   #define B_0001    1
@@ -201,70 +202,119 @@ uint32_t binaryPM10 = 0b1010;
   unsigned int w = word(1101, 1111, 0100, 0011); // Equivalent to w = 57155; or w = 0xdf43;
   unsigned long int dw = DWORD(1101, 1111, 0100, 0011, 1111, 1101, 0010, 1000); //Equivalent to dw = 3745774888; or dw = 0xdf43fd28;
 */
+
 ///////////////////////////////////////////////--Convert Integer to Binary///////////////////////////////////////////////
-unsigned int invertedBinaryNum[32];
-unsigned int binaryNum[32];
+constexpr size_t arraySize = 16;
+unsigned int invertedBinaryNum[arraySize] {0};
+unsigned int binaryNum[arraySize] {0};
 uint32_t binValue = 0;
 
+//TODO: change the int to size_t
 void decToBinary(int input)
 {
   // array to store binary number
-  Serial.println("\n");
-  Serial.printf("Get Binary for %d \n", input);
+  Serial.printf("\nGet Binary for %d \n", input);
 
   //Reset of the used Arrays and Values
   //TODO: overwrite tempBinaryArray with value:0
   //TODO: Controll the Size of writing width
-  for (int i = 0; i < sizeof(invertedBinaryNum) - 1; i++)
+  for (size_t counter = 0; counter < (arraySize); counter++)
   {
-    invertedBinaryNum[i] = 0;
+    invertedBinaryNum[counter] = 0;
+  }
+
+  for (size_t counter = 0; counter < (arraySize); counter++) {
+    int printValue = 0;
+    printValue = invertedBinaryNum[counter];
+    Serial.println("Value in invertedBinaryNum:");
+    Serial.print(printValue);
+    Serial.println("\n");
   }
 
   //TODO: overwrite BinaryArray with value:0
   //TODO: Controll the Size of writing width
-  for (int i = 0; i < sizeof(binaryNum) - 1; i++)
+  for (size_t counter = 0; counter < (arraySize); counter++)
   {
-    binaryNum[i] = 0;
+    binaryNum[counter] = 0;
+  }
+
+  for (size_t counter = 0; counter < (arraySize); counter++) {
+    int printValue = 0;
+    printValue = binaryNum[counter];
+    Serial.println("Value in BinaryNum:");
+    Serial.print(printValue);
+    Serial.println("\n");
   }
 
   //TODO: overwrite binValue with 0
   //Check delivered value from uint32_t or byte for binValue
   //uint32_t binValue = 0;
 
-  // counter for binary array
-  int i = 0;
-  int lengthInput = sizeof(input);
 
+  /*
+    char lengthInput = sizeof(input);
+    Serial.println("########################################\n");
+    Serial.print("\nValue of length: ");
+    Serial.print(lengthInput);
+    Serial.println("\n########################################\n");
+  */
+  // counter for binary array
+  int arraySizeCounter = 0;
+
+  //Write the inverted binary to an array
+  //highest place number in the array is the beginning of the binary
   while (input > 0)
   {
     // storing remainder in binary array
-    invertedBinaryNum[i] = input % 2;
+    invertedBinaryNum[arraySizeCounter] = input % 2;
     input = input / 2;
-    i++;  //length of value
-    //TODO: controll: maybe -1 has to be added behind the sizeof()
-    if (i == lengthInput)
-    {
-      Serial.println("Work done");
-    }
+    arraySizeCounter++;  //length of value
   }
 
-  // safing & printing binary array in reverse ("right") order
-  for (int j = i; j >= 1; j--)
+  Serial.print("\n#################\n");
+  Serial.print("Values in Array:\n");
+  Serial.print(arraySizeCounter);
+  Serial.print("\n#################\n");
+
+  // safing & printing binary array in reverse ("right"->EU) order
+  for (size_t counter = arraySizeCounter; counter >= 1; counter--)
   {
-    int arrayplace = i - j;
-    binaryNum[arrayplace] = invertedBinaryNum[j];
-    Serial.println(invertedBinaryNum[j]);
-    Serial.println(binaryNum[arrayplace]);
+    int arrayPlace = arraySizeCounter - counter;
+    binaryNum[arrayPlace] = invertedBinaryNum[counter - 1];
+    Serial.print("\n####Step:####\n");
+    Serial.println(counter);
+    Serial.print("\n");
+    Serial.println(arrayPlace);
+    Serial.print("\n");
+    Serial.println(invertedBinaryNum[counter - 1]);
+    Serial.print("\n");
+    Serial.println(binaryNum[arrayPlace]);
+    Serial.print("\n########\n");
   }
-  //
 
-  byte binSensorData = 0b00000000;
-  for (int binDataPlace = 0; binDataPlace <= 7; binDataPlace ++){ //7 is the sizeof the numbers of the digits after 0b -1
-    int transmitValue = binaryNum[binDataPlace];
+  //Write bin Array Values with bitWrite to binSensorData
+  uint16_t binSensorData = 0b0000000000000000; //for integer values till to 65535
+  size_t writeSpace = arraySizeCounter-1;
+  
+  Serial.print("\n########\n");
+  Serial.print(writeSpace);
+  Serial.print("\n########\n");
+
+  for (size_t binDataPlace = 0; binDataPlace < arraySizeCounter; binDataPlace ++) {
+    byte transmitValue = invertedBinaryNum[binDataPlace];
+    Serial.print("\n########\n");
+    Serial.print("Transmitted Value:\n");
+    Serial.print(transmitValue);
+    Serial.print("\n");
+    Serial.print(writeSpace);
+    Serial.print("\n########\n");
     bitWrite(binSensorData, binDataPlace, transmitValue);  //Schreibe 1 auf das niedrigstwertige Bit von x
+    writeSpace = writeSpace - 1;
   }
-
-  Serial.print(binSensorData, BIN);
+  Serial.print("\n########\n");
+  Serial.print("BinValue\n");
+  Serial.println(binSensorData);
+  Serial.print("\n########\n");
 
   //TODO: writing the binValue with an "0b"
   // test
@@ -354,20 +404,21 @@ void prepareTxFrame(uint8_t port)
     //Parser: feinstaub1: pm10
     appData[10] = PM10;
 
-  */
 
-  Serial.println("Seperated lines: \n");
-  for (int i = 0; i < appDataSize; i++)
-  {
+
+    Serial.println("Seperated lines: \n");
+    for (int i = 0; i < appDataSize; i++)
+    {
     Serial.println("\n");
     Serial.print(appData[i]);
-  }
+    }
 
-  Serial.println("\n Single lines: \n");
-  for (int i = 0; i < appDataSize; i++)
-  {
+    Serial.println("\n Single lines: \n");
+    for (int i = 0; i < appDataSize; i++)
+    {
     Serial.print(appData[i]);
-  }
+    }
+  */
 }
 
 ////////////////////////////////--Connect Temperature and Humidity Sensor--//////////////////////////////////////////////
@@ -379,7 +430,7 @@ void prepareTxFrame(uint8_t port)
 //#define DHTTYPE    DHT21     // DHT 21 (AM2301)
 
 DHT_Unified dht(DHTPIN, DHTTYPE);
-uint32_t delayMS = 500;
+uint32_t delayMS = 50;
 bool DHTactivated = false;
 
 int connectDHT()
@@ -521,109 +572,115 @@ void loop()
     Serial.println("########################################\n");
     Serial.println("########################################\n");
   */
-  unsigned int number = 7;
-  decToBinary(number);
-  delay(5000);
+  //connectDHT();
 
-//  switch (deviceState)
-//  {
-//    ///////////////--Initialize--////////////////////
-//    case DEVICE_STATE_INIT:
-//      {
-//#if (LORAWAN_DEVEUI_AUTO)
-//        LoRaWAN.generateDeveuiByChipID();
-//#endif
-//        LoRaWAN.init(loraWanClass, loraWanRegion);
-//        break;
-//      }
-//
-//    ///////////////--Join--////////////////////
-//    case DEVICE_STATE_JOIN:
-//      {
-//        Serial.println("Join");
-//        LoRaWAN.join();
-//        break;
-//      }
-//
-//    ///////////////--State send--////////////////////
-//    case DEVICE_STATE_SEND:
-//      {
-//        Serial.println("########################################\n");
-//        Serial.println("########################################\n");
-//        Serial.println("Send payload:");
-//        digitalWrite(Vext, LOW);
-//        delay(50);
-//        Serial.println("########################################\n");
-//        Serial.println("Check Values from Sensor\n");
-//        Serial.println("Package State:\n");
-//        Serial.println(packageState);
-//        Serial.println("\n");
-//        Serial.println(binaryPackageState);
-//
-//        Serial.println("\nBattery Status:\n");
-//        Serial.println(batteryStatus);
-//        Serial.println("\n");
-//        Serial.println(binaryBatteryStatus);
-//
-//        Serial.println("\nTemperature:\n");
-//        Serial.println(sensorDataTemperature);
-//        Serial.println("\n");
-//        Serial.println(binaryTemperature);
-//
-//        Serial.println("\nHumidity:\n");
-//        Serial.println(sensorDataHumidity);
-//        Serial.println("\n");
-//        Serial.println(binaryHumidity);
-//
-//        Serial.println("\nCO2:\n");
-//        Serial.println(sensorDataCO2);
-//        Serial.println("\n");
-//        Serial.println(binaryCO2);
-//
-//        Serial.println("\nVOC:\n");
-//        Serial.println(sensorDataVOC);
-//        Serial.println("\n");
-//        Serial.println(binaryVOC);
-//        Serial.println("\n########################################\n");
-//        Serial.println("########################################\n");
-//        delay(500);
-//        prepareTxFrame(appPort);
-//
-//        /*
-//            uint16_t ADC_voltage = analogRead(37);
-//            digitalWrite(Vext, HIGH);
-//            ADC_Process( ADC_voltage );
-//        */
-//        LoRaWAN.send(loraWanClass);
-//        deviceState = DEVICE_STATE_CYCLE;
-//        break;
-//      }
-//
-//    ///////////////--Cycle--////////////////////
-//    case DEVICE_STATE_CYCLE:
-//      {
-//        Serial.println("Cycle");
-//        // Schedule next packet transmission
-//        txDutyCycleTime = appTxDutyCycle;
-//        //+ randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
-//        LoRaWAN.cycle(txDutyCycleTime);
-//        deviceState = DEVICE_STATE_SLEEP;
-//        break;
-//      }
-//
-//    ///////////////--Sleep--////////////////////
-//    case DEVICE_STATE_SLEEP:
-//      {
-//        LoRaWAN.sleep(loraWanClass, debugLevel);
-//        break;
-//      }
-//
-//    ///////////////--default--////////////////////
-//    default:
-//      {
-//        deviceState = DEVICE_STATE_INIT;
-//        break;
-//      }
-//  }
-  
+  Serial.println("\n########################################\n");
+  int number = 65000;
+  Serial.println(number);
+  Serial.println("\n########################################\n");
+
+  decToBinary(number);
+  delay(4000);
+
+  //  switch (deviceState)
+  //  {
+  //    ///////////////--Initialize--////////////////////
+  //    case DEVICE_STATE_INIT:
+  //      {
+  //#if (LORAWAN_DEVEUI_AUTO)
+  //        LoRaWAN.generateDeveuiByChipID();
+  //#endif
+  //        LoRaWAN.init(loraWanClass, loraWanRegion);
+  //        break;
+  //      }
+  //
+  //    ///////////////--Join--////////////////////
+  //    case DEVICE_STATE_JOIN:
+  //      {
+  //        Serial.println("Join");
+  //        LoRaWAN.join();
+  //        break;
+  //      }
+  //
+  //    ///////////////--State send--////////////////////
+  //    case DEVICE_STATE_SEND:
+  //      {
+  //        Serial.println("########################################\n");
+  //        Serial.println("########################################\n");
+  //        Serial.println("Send payload:");
+  //        digitalWrite(Vext, LOW);
+  //        delay(50);
+  //        Serial.println("########################################\n");
+  //        Serial.println("Check Values from Sensor\n");
+  //        Serial.println("Package State:\n");
+  //        Serial.println(packageState);
+  //        Serial.println("\n");
+  //        Serial.println(binaryPackageState);
+  //
+  //        Serial.println("\nBattery Status:\n");
+  //        Serial.println(batteryStatus);
+  //        Serial.println("\n");
+  //        Serial.println(binaryBatteryStatus);
+  //
+  //        Serial.println("\nTemperature:\n");
+  //        Serial.println(sensorDataTemperature);
+  //        Serial.println("\n");
+  //        Serial.println(binaryTemperature);
+  //
+  //        Serial.println("\nHumidity:\n");
+  //        Serial.println(sensorDataHumidity);
+  //        Serial.println("\n");
+  //        Serial.println(binaryHumidity);
+  //
+  //        Serial.println("\nCO2:\n");
+  //        Serial.println(sensorDataCO2);
+  //        Serial.println("\n");
+  //        Serial.println(binaryCO2);
+  //
+  //        Serial.println("\nVOC:\n");
+  //        Serial.println(sensorDataVOC);
+  //        Serial.println("\n");
+  //        Serial.println(binaryVOC);
+  //        Serial.println("\n########################################\n");
+  //        Serial.println("########################################\n");
+  //        delay(500);
+  //        prepareTxFrame(appPort);
+  //
+  //        /*
+  //            uint16_t ADC_voltage = analogRead(37);
+  //            digitalWrite(Vext, HIGH);
+  //            ADC_Process( ADC_voltage );
+  //        */
+  //        LoRaWAN.send(loraWanClass);
+  //        deviceState = DEVICE_STATE_CYCLE;
+  //        break;
+  //      }
+  //
+  //    ///////////////--Cycle--////////////////////
+  //    case DEVICE_STATE_CYCLE:
+  //      {
+  //        Serial.println("Cycle");
+  //        // Schedule next packet transmission
+  //        txDutyCycleTime = appTxDutyCycle;
+  //        //+ randr( -APP_TX_DUTYCYCLE_RND, APP_TX_DUTYCYCLE_RND );
+  //        LoRaWAN.cycle(txDutyCycleTime);
+  //        deviceState = DEVICE_STATE_SLEEP;
+  //        break;
+  //      }
+  //
+  //    ///////////////--Sleep--////////////////////
+  //    case DEVICE_STATE_SLEEP:
+  //      {
+  //        LoRaWAN.sleep(loraWanClass, debugLevel);
+  //        break;
+  //      }
+  //
+  //    ///////////////--default--////////////////////
+  //    default:
+  //      {
+  //        deviceState = DEVICE_STATE_INIT;
+  //        break;
+  //      }
+  //  }
+
 }
