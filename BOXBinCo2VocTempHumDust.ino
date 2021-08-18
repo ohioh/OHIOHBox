@@ -659,22 +659,163 @@ int connectBatteryStatus() {
 //    unsigned int sensorDataPM4; -> uint16_t binaryPM4;
 //    unsigned int sensorDataPM5; -> uint16_t binaryPM5;
 //    unsigned int sensorDataPM10; -> uint16_t binaryPM10;
-//
+//    Luftqualitätsnorm DIN EN 15267 
+//    Mass concentration precision: ±10 μg/m3 @ 0 to 100 μg/m3
+//    Lower limit: 0.3 μm
+//    Mass concentration Messurment:   PM1.0, PM2.5, PM4 and PM10
+//    Number concentration Messurment:  PM0.5, PM1.0, PM2.5, PM4 and PM10
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: get Dust Sensor Data
 
 int sensorDataDust = 42999;
+//unsigned int sensorDataPM1 = 0;
+//uint16_t binaryPM1 = 0b1100110011001100; //52428 and CCCC
+int pmState = 1;
 
 int connectDustSensor() {
+  Serial.println("Connect Dust Sensor");
+
+  struct sps30_measurement m;
+  char serial[SPS30_MAX_SERIAL_LEN];
+  uint16_t data_ready;
+  int16_t ret;
+
   binSensorData = 0b0000000000000000;
   binPlatformData = 0b0000000000000000;
-  Serial.println("Connect Dust Sensor");
-  batteryStatus = 65;
-  //Convert Deicimal Value in Binary in binSensorData
-  decToBinary(batteryStatus);
-  //Convert Binary for Zenner-Logic in binPlatformData
-  zennerParserPrepair();
-  binaryBatteryStatus = binPlatformData;
+
+  //  do {
+  //    ret = sps30_read_data_ready(&data_ready);
+  //    if (ret < 0) {
+  //      Serial.print("error reading data-ready flag: ");
+  //      Serial.println(ret);
+  //    } else if (!data_ready)
+  //      Serial.print("data not ready, no new measurement available\n");
+  //    else
+  //      break;
+  //    delay(100); /* retry in 100ms */
+  //  } while (1);
+  //
+  ret = sps30_read_measurement(&m);
+  if (ret < 0) {
+    Serial.print("error reading measurement\n");
+  } else {
+
+#ifndef PLOTTER_FORMAT
+    //Convert Deicimal Value in Binary in binSensorData
+    switch (pmState)
+    {
+///////////////--PM1--////////////////////
+    case 1:
+      {
+   
+    sensorDataPM1 = m.mc_1p0;
+    decToBinary(sensorDataPM1);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryPM1 = binPlatformData;
+    
+    Serial.print("PM  1.0: ");
+    Serial.println(m.mc_1p0); 
+    break;
+    }
+///////////////--PM2.5--////////////////////
+    case 2:
+      {
+   
+    sensorDataPM25 = m.mc_1p0;
+    decToBinary(sensorDataPM1);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryPM25 = binPlatformData;
+    
+    Serial.print("PM  2.5: ");
+    Serial.println(m.mc_2p5); 
+    break;
+    }
+///////////////--PM4--////////////////////
+    case 3:
+      {
+   
+    sensorDataPM4 = m.mc_4p0;
+    decToBinary(sensorDataPM1);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryPM4 = binPlatformData;
+    
+    Serial.print("PM  4: ");
+    Serial.println(m.mc_4p0); 
+    break;
+    }
+///////////////--PM10--////////////////////
+    case 4:
+      {
+   
+    sensorDataPM5 = m.mc_10p0;
+    decToBinary(sensorDataPM1);
+    //Convert Binary for Zenner-Logic in binPlatformData
+    zennerParserPrepair();
+    binaryPM25 = binPlatformData;
+    
+    Serial.print("PM  10: ");
+    Serial.println(m.mc_10p0); 
+    break;
+    }
+    /*
+    Serial.print("PM  2.5: ");
+    Serial.println(m.mc_2p5);
+    Serial.print("PM  4.0: ");
+    Serial.println(m.mc_4p0);
+    Serial.print("PM 10.0: ");
+    Serial.println(m.mc_10p0);
+    */
+    }
+    /*
+#ifndef SPS30_LIMITED_I2C_BUFFER_SIZE
+    Serial.print("NC  0.5: ");
+    Serial.println(m.nc_0p5);
+    Serial.print("NC  1.0: ");
+    Serial.println(m.nc_1p0);
+    Serial.print("NC  2.5: ");
+    Serial.println(m.nc_2p5);
+    Serial.print("NC  4.0: ");
+    Serial.println(m.nc_4p0);
+    Serial.print("NC 10.0: ");
+    Serial.println(m.nc_10p0);
+
+    Serial.print("Typical partical size: ");
+    Serial.println(m.typical_particle_size);
+#endif
+*/
+
+    Serial.println();
+
+#else
+    // since all values include particles smaller than X, if we want to create buckets we
+    // need to subtract the smaller particle count.
+    // This will create buckets (all values in micro meters):
+    // - particles        <= 0,5
+    // - particles > 0.5, <= 1
+    // - particles > 1,   <= 2.5
+    // - particles > 2.5, <= 4
+    // - particles > 4,   <= 10
+
+    Serial.print(m.nc_0p5);
+    Serial.print(" ");
+    Serial.print(m.nc_1p0  - m.nc_0p5);
+    Serial.print(" ");
+    Serial.print(m.nc_2p5  - m.nc_1p0);
+    Serial.print(" ");
+    Serial.print(m.nc_4p0  - m.nc_2p5);
+    Serial.print(" ");
+    Serial.print(m.nc_10p0 - m.nc_4p0);
+    Serial.println();
+
+
+#endif /* PLOTTER_FORMAT */
+
+  }
+
+  delay(1000);
 }
 
 
@@ -711,6 +852,8 @@ int connectStatusCommunication() {
 //    5.binaryCO2              11.PM10
 //    6.binaryVOC              12.qmPM1[soon]
 //
+//  Mass concentration:   PM1.0, PM2.5, PM4 and PM10
+//  Number concentration:  PM0.5, PM1.0, PM2.5, PM4 and PM10
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern uint16_t appData[];
@@ -721,7 +864,7 @@ void prepareTxFrame(uint8_t port)
 
   //Size of values in Payload as binary
   //depends to uintXX_t appData[]
-  appDataSize = 12; //AppDataSize max value is 64 -> each number is for 2 digits
+  appDataSize = 20; //AppDataSize max value is 64 -> each number is for 2 digits
   //Important: AppDataSize representate the number of transmitted bytes
 
   //Parser: status: state
@@ -770,33 +913,30 @@ void prepareTxFrame(uint8_t port)
   messureCO2 = true;
   delay(50);
 
-  /*
-    //Parser: feinstaub1: pm1
-    appData[6] = PM1;
-    //Parser: feinstaub1: pm2.5
-    appData[7] = PM25;
-    //Parser: feinstaub1: pm4
-    appData[8] = PM4;
-    //Parser: feinstaub1: pm5
-    appData[9] = PM5;
+  //Parser: feinstaub1: pm1
+  connectDustSensor();
+  appData[6] = binaryPM1;
+  pmState = 2;
+  delay(500);
+
+  //Parser: feinstaub1: pm2.5
+  connectDustSensor();
+  appData[7] = binaryPM25;
+  pmState = 3;
+  delay(500);
+
+  //Parser: feinstaub1: pm4
+  connectDustSensor();
+  appData[8] = binaryPM4;
+  pmState = 4;
+  delay(500);
+
     //Parser: feinstaub1: pm10
-    appData[10] = PM10;
-
-
-
-    Serial.println("Seperated lines: \n");
-    for (int i = 0; i < appDataSize; i++)
-    {
-    Serial.println("\n");
-    Serial.print(appData[i]);
-    }
-
-    Serial.println("\n Single lines: \n");
-    for (int i = 0; i < appDataSize; i++)
-    {
-    Serial.print(appData[i]);
-    }
-  */
+  connectDustSensor();
+  appData[9] = binaryPM10;
+  pmState = 1;
+  delay(500);
+  
 }
 
 
@@ -919,10 +1059,6 @@ void setup()
 
 void loop()
 {
-  struct sps30_measurement m;
-  char serial[SPS30_MAX_SERIAL_LEN];
-  uint16_t data_ready;
-  int16_t ret;
   //Test-Area
   /*
     Serial.println("########################################\n");
@@ -1036,77 +1172,6 @@ void loop()
         break;
       }
   }
-  ///////////////--Dust Sensor Loop--////////////////////
-  do {
-    ret = sps30_read_data_ready(&data_ready);
-    if (ret < 0) {
-      Serial.print("error reading data-ready flag: ");
-      Serial.println(ret);
-    } else if (!data_ready)
-      Serial.print("data not ready, no new measurement available\n");
-    else
-      break;
-    delay(100); /* retry in 100ms */
-  } while (1);
-
-  ret = sps30_read_measurement(&m);
-  if (ret < 0) {
-    Serial.print("error reading measurement\n");
-  } else {
-
-#ifndef PLOTTER_FORMAT
-    Serial.print("PM  1.0: ");
-    Serial.println(m.mc_1p0);
-    Serial.print("PM  2.5: ");
-    Serial.println(m.mc_2p5);
-    Serial.print("PM  4.0: ");
-    Serial.println(m.mc_4p0);
-    Serial.print("PM 10.0: ");
-    Serial.println(m.mc_10p0);
-
-#ifndef SPS30_LIMITED_I2C_BUFFER_SIZE
-    Serial.print("NC  0.5: ");
-    Serial.println(m.nc_0p5);
-    Serial.print("NC  1.0: ");
-    Serial.println(m.nc_1p0);
-    Serial.print("NC  2.5: ");
-    Serial.println(m.nc_2p5);
-    Serial.print("NC  4.0: ");
-    Serial.println(m.nc_4p0);
-    Serial.print("NC 10.0: ");
-    Serial.println(m.nc_10p0);
-
-    Serial.print("Typical partical size: ");
-    Serial.println(m.typical_particle_size);
-#endif
-
-    Serial.println();
-
-#else
-    // since all values include particles smaller than X, if we want to create buckets we
-    // need to subtract the smaller particle count.
-    // This will create buckets (all values in micro meters):
-    // - particles        <= 0,5
-    // - particles > 0.5, <= 1
-    // - particles > 1,   <= 2.5
-    // - particles > 2.5, <= 4
-    // - particles > 4,   <= 10
-
-    Serial.print(m.nc_0p5);
-    Serial.print(" ");
-    Serial.print(m.nc_1p0  - m.nc_0p5);
-    Serial.print(" ");
-    Serial.print(m.nc_2p5  - m.nc_1p0);
-    Serial.print(" ");
-    Serial.print(m.nc_4p0  - m.nc_2p5);
-    Serial.print(" ");
-    Serial.print(m.nc_10p0 - m.nc_4p0);
-    Serial.println();
 
 
-#endif /* PLOTTER_FORMAT */
-
-  }
-
-  delay(1000);
 }
