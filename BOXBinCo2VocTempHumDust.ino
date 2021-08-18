@@ -659,7 +659,7 @@ int connectBatteryStatus() {
 //    unsigned int sensorDataPM4; -> uint16_t binaryPM4;
 //    unsigned int sensorDataPM5; -> uint16_t binaryPM5;
 //    unsigned int sensorDataPM10; -> uint16_t binaryPM10;
-//    Luftqualitätsnorm DIN EN 15267 
+//    Luftqualitätsnorm DIN EN 15267
 //    Mass concentration precision: ±10 μg/m3 @ 0 to 100 μg/m3
 //    Lower limit: 0.3 μm
 //    Mass concentration Messurment:   PM1.0, PM2.5, PM4 and PM10
@@ -704,88 +704,91 @@ int connectDustSensor() {
     //Convert Deicimal Value in Binary in binSensorData
     switch (pmState)
     {
-///////////////--PM1--////////////////////
-    case 1:
-      {
-   
-    sensorDataPM1 = m.mc_1p0;
-    decToBinary(sensorDataPM1);
-    //Convert Binary for Zenner-Logic in binPlatformData
-    zennerParserPrepair();
-    binaryPM1 = binPlatformData;
-    
-    Serial.print("PM  1.0: ");
-    Serial.println(m.mc_1p0); 
-    break;
-    }
-///////////////--PM2.5--////////////////////
-    case 2:
-      {
-   
-    sensorDataPM25 = m.mc_1p0;
-    decToBinary(sensorDataPM1);
-    //Convert Binary for Zenner-Logic in binPlatformData
-    zennerParserPrepair();
-    binaryPM25 = binPlatformData;
-    
-    Serial.print("PM  2.5: ");
-    Serial.println(m.mc_2p5); 
-    break;
-    }
-///////////////--PM4--////////////////////
-    case 3:
-      {
-   
-    sensorDataPM4 = m.mc_4p0;
-    decToBinary(sensorDataPM1);
-    //Convert Binary for Zenner-Logic in binPlatformData
-    zennerParserPrepair();
-    binaryPM4 = binPlatformData;
-    
-    Serial.print("PM  4: ");
-    Serial.println(m.mc_4p0); 
-    break;
-    }
-///////////////--PM10--////////////////////
-    case 4:
-      {
-   
-    sensorDataPM5 = m.mc_10p0;
-    decToBinary(sensorDataPM1);
-    //Convert Binary for Zenner-Logic in binPlatformData
-    zennerParserPrepair();
-    binaryPM25 = binPlatformData;
-    
-    Serial.print("PM  10: ");
-    Serial.println(m.mc_10p0); 
-    break;
-    }
-    /*
-    Serial.print("PM  2.5: ");
-    Serial.println(m.mc_2p5);
-    Serial.print("PM  4.0: ");
-    Serial.println(m.mc_4p0);
-    Serial.print("PM 10.0: ");
-    Serial.println(m.mc_10p0);
-    */
-    }
-    /*
-#ifndef SPS30_LIMITED_I2C_BUFFER_SIZE
-    Serial.print("NC  0.5: ");
-    Serial.println(m.nc_0p5);
-    Serial.print("NC  1.0: ");
-    Serial.println(m.nc_1p0);
-    Serial.print("NC  2.5: ");
-    Serial.println(m.nc_2p5);
-    Serial.print("NC  4.0: ");
-    Serial.println(m.nc_4p0);
-    Serial.print("NC 10.0: ");
-    Serial.println(m.nc_10p0);
+      ///////////////--PM1--////////////////////
+      case 1:
+        {
 
-    Serial.print("Typical partical size: ");
-    Serial.println(m.typical_particle_size);
-#endif
-*/
+          sensorDataPM1 = m.mc_1p0;
+          decToBinary(sensorDataPM1);
+          //Convert Binary for Zenner-Logic in binPlatformData
+          zennerParserPrepair();
+          binaryPM1 = binPlatformData;
+
+          Serial.print("PM  1.0: ");
+          Serial.println(m.mc_1p0);
+          break;
+        }
+      ///////////////--PM2.5--////////////////////
+      case 2:
+        {
+          binSensorData = 0b0000000000000000;
+          binPlatformData = 0b0000000000000000;
+          sensorDataPM25 = m.mc_1p0;
+          decToBinary(sensorDataPM25);
+          //Convert Binary for Zenner-Logic in binPlatformData
+          zennerParserPrepair();
+          binaryPM25 = binPlatformData;
+
+          Serial.print("PM  2.5: ");
+          Serial.println(m.mc_2p5);
+          break;
+        }
+      ///////////////--PM4--////////////////////
+      case 3:
+        {
+          binSensorData = 0b0000000000000000;
+          binPlatformData = 0b0000000000000000;
+          sensorDataPM4 = m.mc_4p0;
+          decToBinary(sensorDataPM4);
+          //Convert Binary for Zenner-Logic in binPlatformData
+          zennerParserPrepair();
+          binaryPM4 = binPlatformData;
+
+          Serial.print("PM  4: ");
+          Serial.println(m.mc_4p0);
+          break;
+        }
+      ///////////////--PM10--////////////////////
+      case 4:
+        {
+          binSensorData = 0b0000000000000000;
+          binPlatformData = 0b0000000000000000;
+          sensorDataPM10 = m.mc_10p0;
+          decToBinary(sensorDataPM10);
+          //Convert Binary for Zenner-Logic in binPlatformData
+          zennerParserPrepair();
+          binaryPM10 = binPlatformData;
+
+          Serial.print("PM  10: ");
+          Serial.println(m.mc_10p0);
+          break;
+        }
+        /*
+          Serial.print("PM  2.5: ");
+          Serial.println(m.mc_2p5);
+          Serial.print("PM  4.0: ");
+          Serial.println(m.mc_4p0);
+          Serial.print("PM 10.0: ");
+          Serial.println(m.mc_10p0);
+        */
+    }
+    /*
+      #ifndef SPS30_LIMITED_I2C_BUFFER_SIZE
+      Serial.print("NC  0.5: ");
+      Serial.println(m.nc_0p5);
+      Serial.print("NC  1.0: ");
+      Serial.println(m.nc_1p0);
+      Serial.print("NC  2.5: ");
+      Serial.println(m.nc_2p5);
+      Serial.print("NC  4.0: ");
+      Serial.println(m.nc_4p0);
+      Serial.print("NC 10.0: ");
+      Serial.println(m.nc_10p0);
+
+      Serial.print("Typical partical size: ");
+      Serial.println(m.typical_particle_size);
+      #endif
+    */
 
     Serial.println();
 
@@ -911,7 +914,7 @@ void prepareTxFrame(uint8_t port)
   connectSGP30();
   appData[5] = binaryVOC;
   messureCO2 = true;
-  delay(50);
+  delay(500);
 
   //Parser: feinstaub1: pm1
   connectDustSensor();
@@ -923,20 +926,20 @@ void prepareTxFrame(uint8_t port)
   connectDustSensor();
   appData[7] = binaryPM25;
   pmState = 3;
-  delay(500);
+  delay(2000);
 
   //Parser: feinstaub1: pm4
   connectDustSensor();
   appData[8] = binaryPM4;
   pmState = 4;
-  delay(500);
+  delay(2000);
 
-    //Parser: feinstaub1: pm10
+  //Parser: feinstaub1: pm10
   connectDustSensor();
   appData[9] = binaryPM10;
   pmState = 1;
-  delay(500);
-  
+  delay(2000);
+
 }
 
 
@@ -1023,7 +1026,7 @@ void setup()
   Serial.print("SPS sensor probing successful\n");
 #endif /* PLOTTER_FORMAT */
 
-  ret = sps30_set_fan_auto_cleaning_interval_days(auto_clean_days);
+  ret = sps30_set_fan_auto_cleaning_interval_days(60);
   if (ret) {
     Serial.print("error setting the auto-clean interval: ");
     Serial.println(ret);
