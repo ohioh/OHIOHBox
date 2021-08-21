@@ -1,6 +1,6 @@
 /*
-   ###################################################################################################################
-   ###################################################################################################################
+  ###################################################################################################################
+  ###################################################################################################################
    OHIOH LoRaWAN-1.0.2 use OTAA, CLASS A
    Band: 868300000 Hz at DR 5
    Author: Tjark Ziehm
@@ -11,8 +11,8 @@
    Peripherals: Display and multicolor LED
    MultiProcessor Support: YES
 
-   Parser-Code:
-   Github-Repo:
+   Parser-Code: https://github.com/ohioh/OHIOHBox/blob/main/Parser.exs
+   Github-Repo: https://github.com/ohioh/OHIOHBox
 
    ESP32-Function summary:
    LoRaWan Settings:
@@ -68,11 +68,19 @@
   XX. Connect Status-Communication
   xx. Payload DataFrame Builder
   xx. Connect LED
+  xx. COVID ALERT
   1x. Connect Multiprocess Feature
   1x. Setup the ESP32
   1x. Loop the ESP32
-   ###################################################################################################################
-   ###################################################################################################################
+
+  GPIO:
+    //------ Onboard-LED: Case 1  ( white ) @GPIO 25 or LED_BUILTIN
+    //------ Signal-LED:  Case 2  ( red )   @GPIO 12
+    //------ Signal-LED:  Case 3  ( green ) @GPIO 10
+    //------ Signal-LED:  Case 4  ( blue )  @GPIO 9
+
+  ###################################################################################################################
+  ###################################################################################################################
 */
 
 /////////////////////////////////////////////////---INCLUDE---//////////////////////////////////////////////////////////////////////
@@ -185,8 +193,65 @@ uint8_t debugLevel = LoRaWAN_DEBUG_LEVEL;
 /*LoraWan region, select in arduino IDE tools*/
 LoRaMacRegion_t loraWanRegion = ACTIVE_REGION;
 
-#define LEDPin 25 //LED light
+//LED Settings
+#define LEDPin 25 //LED light white (same as Onboard)
+#define redLED 13
+#define greenLED 10
+#define blueLED 9
 
+//////////////////////////////////////////////---COVID-Controll---///////////////////////////////////////////////////////////////////
+// Values used for Logic Controll of LED and Send-Decission
+bool needCheck = false;
+
+// State-Visualisation
+int state4LED = 0;
+int alertLevelStatusRED = 9;
+int alertLevelStatusGREEN = 1;
+
+// Battery-State-Visualisation
+int battery4LED = 0;
+int alertLevelBatteryRED = 2500;
+int alertLevelBatteryGREEN = 3000;
+
+// Temp-Level-Visualisation
+int temperature4LED = 0;
+int alertLevelTemperatureRED = 32;
+int alertLevelTemperatureGREEN = 31;
+
+// Humidity-Level-Visualisation
+int humidity4LED = 0;
+int alertLevelHumidityRED = 61;
+int alertLevelHumidityGREEN = 60;
+
+// CO²-Level-Visualisation
+int co4LED = 0;
+int alertLevelCO2RED = 411;
+int alertLevelCO2GREEN = 410;
+
+// VOC-Level-Visualisation
+int voc4LED = 0;
+int alertLevelVOCRED = 6;
+int alertLevelVOCGREEN = 5;
+
+// PM1-Level-Visualisation
+int pm1LED = 0;
+int alertLevelPM1RED = 41;
+int alertLevelPM1GREEN = 40;
+
+// PM2.5-Level-Visualisation
+int pm25LED = 0;
+int alertLevelPM25RED = 41;
+int alertLevelPM25GREEN = 40;
+
+// PM4-Level-Visualisation
+int pm4LED = 0;
+int alertLevelPM4RED = 41;
+int alertLevelPM4GREEN = 40;
+
+// PM10-Level-Visualisation
+int pm10LED = 0;
+int alertLevelPM10RED = 41;
+int alertLevelPM10GREEN = 40;
 
 //////////////////////////////////////////////---SENSOR-VARIABLES---///////////////////////////////////////////////////////////////////
 //
@@ -469,6 +534,71 @@ void zennerParserPrepair()
 }
 
 
+////////////////////////////////////////////////////---CONNECT LED---////////////////////////////////////////////////////////////////
+//  Variables:
+//    Input defines Color (by case)
+//    Onboard-LED: Case 1 ( white ) @GPIO 25 or LED_BUILTIN
+//    Signal-LED: Case 2  ( red )   @GPIO 12
+//    Signal-LED: Case 3  ( green ) @GPIO 10
+//    Signal-LED: Case 4  ( blue )  @GPIO 9
+//
+//    Input Signal-Value as the number of blinks ( int blink )
+//    Input int activeTime in 1000 for "one" second
+//    Input int interuptTime in Seconds till to the next action or blink signal
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void connectLED (int state, int blink, int activeTime, int interuptTime) {
+
+  switch (state)
+  {
+    ///////////////--OnBoard-LED--////////////////////
+    case 1:
+      {
+        for (size_t blinkNumbers = blink; blinkNumbers > 0; blinkNumbers --) {
+          digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+          delay(activeTime);                       // wait for a second
+          digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+          delay(interuptTime);                       // wait for a second
+        }
+      }
+
+    ///////////////--Red-LED--////////////////////
+    case 2:
+      {
+        for (size_t blinkNumbers = blink; blinkNumbers > 0; blinkNumbers --) {
+          digitalWrite(redLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+          delay(activeTime);                       // wait for a second
+          digitalWrite(redLED, LOW);    // turn the LED off by making the voltage LOW
+          delay(interuptTime);                       // wait for a second
+        }
+      }
+
+    ///////////////--Green-LED--////////////////////
+    case 3:
+      {
+        for (size_t blinkNumbers = blink; blinkNumbers > 0; blinkNumbers --) {
+          digitalWrite(greenLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+          delay(activeTime);                       // wait for a second
+          digitalWrite(greenLED, LOW);    // turn the LED off by making the voltage LOW
+          delay(interuptTime);                       // wait for a second
+        }
+      }
+
+    ///////////////--Blue-LED--////////////////////
+    case 4:
+      {
+        for (size_t blinkNumbers = blink; blinkNumbers > 0; blinkNumbers --) {
+          digitalWrite(blueLED, HIGH);   // turn the LED on (HIGH is the voltage level)
+          delay(activeTime);                       // wait for a second
+          digitalWrite(blueLED, LOW);    // turn the LED off by making the voltage LOW
+          delay(interuptTime);                       // wait for a second
+        }
+      }
+
+  }
+  needCheck = false ;
+}
+
 /////////////////////////////////////////---CONNECT TEMPERATURE AND HUMIDITY SENSOR---///////////////////////////////////////////////////
 //  Variables:
 //    unsigned int sensorDataTemperature = 0;
@@ -525,6 +655,7 @@ int connectDHT()
         Serial.print(F("[Messurment]:Temperature: "));
         delay(50);
         sensorDataTemperature = event.temperature;
+        temperature4LED = sensorDataTemperature;
         delay(500);
         Serial.print(sensorDataTemperature);
         Serial.print(F(" °C\n"));
@@ -550,6 +681,7 @@ int connectDHT()
       {
         Serial.print(F("[Messurment]:Humidity: "));
         sensorDataHumidity = event.relative_humidity;
+        humidity4LED = sensorDataHumidity;
         Serial.print(event.relative_humidity);
         Serial.print(F("%\n"));
         //Convert Deicimal Value in Binary in binSensorData
@@ -600,6 +732,8 @@ int connectSGP30()
     binPlatformData = 0b0000000000000000;
     mySensor.measureAirQuality();
     sensorDataCO2 = mySensor.CO2;
+    co4LED = sensorDataCO2;
+
     //Convert Deicimal Value in Binary in binSensorData
     decToBinary(sensorDataCO2);
     //Convert Binary for Zenner-Logic in binPlatformData
@@ -615,6 +749,7 @@ int connectSGP30()
     binPlatformData = 0b0000000000000000;
     mySensor.measureAirQuality();
     sensorDataVOC = mySensor.TVOC;
+    voc4LED = sensorDataVOC;
     //Convert Deicimal Value in Binary in binSensorData
     decToBinary(sensorDataVOC);
     //Convert Binary for Zenner-Logic in binPlatformData
@@ -631,25 +766,49 @@ int connectSGP30()
 ////////////////////////////////////////////////////---CONNECT BATTERY STATUS---/////////////////////////////////////////////////////////////
 //  Variables:
 //    unsigned int batteryStatus; -> uint16_t binaryBatteryStatus;
+//See more APIs about ADC here: https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/blob/master/esp32/cores/esp32/esp32-hal-adc.h
 //
+// ADC readings v voltage
+// *  y = -0.000000000009824x3 + 0.000000016557283x2 + 0.000854596860691x + 0.065440348345433
+// // Polynomial curve match, based on raw data thus:
+// *   464     0.5V
+// *  1088     1.0V
+// *  1707     1.5V
+// *  2331     2.0V
+// *  2951     2.5V
+// *  3775     3.0V
+// *  4095     3.3V -> USB-Connection
+// *
+//  ADC read voltage via GPIO13 with 1% accuracy.
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: get battery Status
 
 int connectBatteryStatus() {
   binSensorData = 0b0000000000000000;
   binPlatformData = 0b0000000000000000;
-  batteryStatus = 65;
+  Serial.print("[Messurment]:Battery 1: ");
+  Serial.print(ReadVoltage(13), 3);
+  Serial.print("\n[Messurment]:Battery 2: ");
+  Serial.print(analogRead(13));
+  Serial.print("\n");
+  Serial.print(analogRead(13));
+  Serial.print("\n");
+  batteryStatus = ReadVoltage(13);
+  battery4LED = batteryStatus;
   //Convert Deicimal Value in Binary in binSensorData
   decToBinary(batteryStatus);
   //Convert Binary for Zenner-Logic in binPlatformData
   zennerParserPrepair();
   binaryBatteryStatus = binPlatformData;
-  /*
-    uint16_t ADC_voltage = analogRead(37);
-    digitalWrite(Vext, HIGH);
-    ADC_Process( ADC_voltage );
-  */
-}
+} // Added an improved polynomial, use either, comment out as required
+
+double ReadVoltage(byte pin) {
+  double reading = analogRead(pin); // Reference voltage is 3v3 so maximum reading is 3v3 = 4095 in range 0 to 4095
+  if (reading < 1 || reading >= 4095)
+    //return 0;
+    // return -0.000000000009824 * pow(reading,3) + 0.000000016557283 * pow(reading,2) + 0.000854596860691 * reading + 0.065440348345433;
+    return -0.000000000000016 * pow(reading, 4) + 0.000000000118171 * pow(reading, 3) - 0.000000301211691 * pow(reading, 2) + 0.001109019271794 * reading + 0.034143524634089;
+} // Added an improved polynomial, use either, comment out as required
 
 
 ////////////////////////////////////////////////////---CONNECT DUST SENSOR---//////////////////////////////////////////////////////////////
@@ -701,7 +860,7 @@ int connectDustSensor() {
   } else {
 
 #ifndef PLOTTER_FORMAT
-    //Convert Deicimal Value in Binary in binSensorData
+    //Convert Decimal Value in Binary in binSensorData
     switch (pmState)
     {
       ///////////////--PM1--////////////////////
@@ -709,13 +868,15 @@ int connectDustSensor() {
         {
 
           sensorDataPM1 = m.mc_1p0;
+          pm1LED = sensorDataPM1;
           decToBinary(sensorDataPM1);
           //Convert Binary for Zenner-Logic in binPlatformData
           zennerParserPrepair();
           binaryPM1 = binPlatformData;
 
+
           Serial.print("PM  1.0: ");
-          Serial.println(m.mc_1p0);
+          Serial.println(m.mc_1p0, DEC);
           break;
         }
       ///////////////--PM2.5--////////////////////
@@ -724,13 +885,14 @@ int connectDustSensor() {
           binSensorData = 0b0000000000000000;
           binPlatformData = 0b0000000000000000;
           sensorDataPM25 = m.mc_1p0;
+          pm25LED = sensorDataPM25;
           decToBinary(sensorDataPM25);
           //Convert Binary for Zenner-Logic in binPlatformData
           zennerParserPrepair();
           binaryPM25 = binPlatformData;
 
           Serial.print("PM  2.5: ");
-          Serial.println(m.mc_2p5);
+          Serial.println(m.mc_2p5, DEC);
           break;
         }
       ///////////////--PM4--////////////////////
@@ -739,13 +901,14 @@ int connectDustSensor() {
           binSensorData = 0b0000000000000000;
           binPlatformData = 0b0000000000000000;
           sensorDataPM4 = m.mc_4p0;
+          pm4LED = sensorDataPM4;
           decToBinary(sensorDataPM4);
           //Convert Binary for Zenner-Logic in binPlatformData
           zennerParserPrepair();
           binaryPM4 = binPlatformData;
 
           Serial.print("PM  4: ");
-          Serial.println(m.mc_4p0);
+          Serial.println(m.mc_4p0, DEC);
           break;
         }
       ///////////////--PM10--////////////////////
@@ -754,13 +917,14 @@ int connectDustSensor() {
           binSensorData = 0b0000000000000000;
           binPlatformData = 0b0000000000000000;
           sensorDataPM10 = m.mc_10p0;
+          pm10LED = sensorDataPM10;
           decToBinary(sensorDataPM10);
           //Convert Binary for Zenner-Logic in binPlatformData
           zennerParserPrepair();
           binaryPM10 = binPlatformData;
 
           Serial.print("PM  10: ");
-          Serial.println(m.mc_10p0);
+          Serial.println(m.mc_10p0, DEC);
           break;
         }
         /*
@@ -943,16 +1107,212 @@ void prepareTxFrame(uint8_t port)
 }
 
 
-
-////////////////////////////////////////////////////---CONNECT LED---////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////---COVID ALERT---/////////////////////////////////////////////////////////////////
 //  Variables:
-//
+//  alertLevelStateGREEN
 //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void getCOVIDPrediction() {
+  // controll the Messurment for Overruns of Risk-Limits
+  Serial.println("[Covid-Prediction]: LED Signals ...");
 
-int connectLED() {
+  for (size_t messurmentArray = 0; messurmentArray <= 9; messurmentArray ++)
+  {
+    int controllValue =   0;
 
+    switch (messurmentArray)
+    {
+      ///////////////--Status-Communication--////////////////////
+      case 0:
+        {
+          controllValue = state4LED;
+          if (controllValue == alertLevelStatusRED) {
+            Serial.println("[Covid-Prediction]: Status-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // white ONBOARD-LED 1 Blink
+          }
+          if (controllValue == alertLevelStatusGREEN) {
+            Serial.println("[Covid-Prediction]: Status");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // white ONBOARD-LED 1 Blink
+          }
+
+        }
+
+      ///////////////--Battery-Status--////////////////////
+      case 1:
+        {
+          controllValue = battery4LED;
+          if (controllValue <= alertLevelBatteryRED) {
+            Serial.println("[Covid-Prediction]: Battery-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+
+          }
+          if (controllValue >= alertLevelBatteryGREEN) {
+            Serial.println("[Covid-Prediction]: Battery");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+
+          }
+
+        }
+
+      ///////////////--Temperature--////////////////////
+      case 2:
+        {
+          controllValue = temperature4LED;
+          if (controllValue >= alertLevelTemperatureRED) {
+            Serial.println("[Covid-Prediction]: Temperature-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 3, 500, 250);  // RED-LED 3 Blink
+
+          }
+          if (controllValue <= alertLevelTemperatureGREEN) {
+            Serial.println("[Covid-Prediction]: Temperature");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+
+          }
+          break;
+        }
+
+      ///////////////--Humidity--////////////////////
+      case 3:
+        {
+          controllValue = humidity4LED;
+          if (controllValue >= alertLevelHumidityRED) {
+            Serial.println("[Covid-Prediction]: Humidity-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelHumidityGREEN) {
+            Serial.println("[Covid-Prediction]: Humidity");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+
+      ///////////////--CO2--////////////////////
+      case 4:
+        {
+          controllValue = co4LED;
+          if (controllValue >= alertLevelCO2RED) {
+            Serial.println("[Covid-Prediction]: CO²-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelCO2GREEN) {
+            Serial.println("[Covid-Prediction]: CO²");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+
+      ///////////////--VOC--////////////////////
+      case 5:
+        {
+          controllValue = voc4LED;
+          if (controllValue >= alertLevelVOCRED) {
+            Serial.println("[Covid-Prediction]: VOC-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelVOCGREEN) {
+            Serial.println("[Covid-Prediction]: VOC");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+
+      ///////////////--PM1--////////////////////
+      case 6:
+        {
+          controllValue = pm1LED;
+          if (controllValue >= alertLevelPM1RED) {
+            Serial.println("[Covid-Prediction]: PM1-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelPM1GREEN) {
+            Serial.println("[Covid-Prediction]: PM1");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+
+      ///////////////--PM25--////////////////////
+      case 7:
+        {
+          controllValue = pm25LED;
+          if (controllValue >= alertLevelPM25RED) {
+            Serial.println("[Covid-Prediction]: PM2.5-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelPM25GREEN) {
+            Serial.println("[Covid-Prediction]: PM2.5");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+
+      ///////////////--PM4--////////////////////
+      case 8:
+        {
+          controllValue = pm4LED;
+          if (controllValue >= alertLevelPM4RED) {
+            Serial.println("[Covid-Prediction]: PM4-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelPM4GREEN) {
+            Serial.println("[Covid-Prediction]: PM4");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+          }
+
+          break;
+        }
+      ///////////////--PM10--////////////////////
+      case 9:
+        {
+          controllValue = pm10LED;
+          if (controllValue >= alertLevelPM10RED) {
+            Serial.println("[Covid-Prediction]: PM10-Alert");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (4, 3, 500, 250);  // RED-LED 3 Blink
+          }
+
+          if (controllValue <= alertLevelPM10GREEN) {
+            Serial.println("[Covid-Prediction]: PM10");
+            // TODO: DISPLAY THE MESSURMENT NAME
+            connectLED (3, 1, 500, 500);  // RED-LED 3 Blink
+
+          }
+          break;
+        }
+    }
+
+  }
 }
+
 
 ////////////////////////////////////////////////////---CONNECT MULTIPROCESSOR FEATURE---/////////////////////////////////////////////
 //  Variables:
@@ -976,11 +1336,25 @@ void setup()
   uint32_t auto_clean;
 
   Serial.begin(115200);
+
+  ///////////////--LED-Setup--////////////////////
   pinMode(LEDPin, OUTPUT);
+  // initialize digital pin LED_BUILTIN as an output.
+  pinMode(redLED, OUTPUT);
+  digitalWrite(redLED, LOW);
+  pinMode(greenLED, OUTPUT);
+  digitalWrite(greenLED, LOW);
+  pinMode(blueLED, OUTPUT);
+  digitalWrite(blueLED, LOW);
+
   while (!Serial)
     ;
+
+  ///////////////--Wire Activation--////////////////////
   SPI.begin(SCK, MISO, MOSI, SS);
   Mcu.init(SS, RST_LoRa, DIO0, DIO1, license);
+
+  ///////////////--Akku Controll--////////////////////
   adcAttachPin(37);
   analogSetClockDiv(255); // 1338mS
   pinMode(Vext, OUTPUT);
@@ -991,11 +1365,12 @@ void setup()
   ///////////////--Initialize sensor--////////////////////
   Wire.begin();
   dht.begin();
+
   if (mySensor.begin() == false)
   {
     Serial.println("No SGP30 Detected. Check connections.");
-    while (1)
-      ;
+    //while (1)
+    //  ;
   }
   //Initializes sensor for air quality readings
   //measureAirQuality should be called in one second increments after a call to initAirQuality
@@ -1017,10 +1392,10 @@ void setup()
   delay(2000);
   sensirion_i2c_init();
 
-  while (sps30_probe() != 0) {
-    Serial.print("SPS sensor probing failed\n");
-    delay(500);
-  }
+  //  while (sps30_probe() != 0) {
+  //    Serial.print("SPS sensor probing failed\n");
+  //    delay(500);
+  //  }
 
 #ifndef PLOTTER_FORMAT
   Serial.print("SPS sensor probing successful\n");
@@ -1052,6 +1427,7 @@ void setup()
 #endif
 
   delay(1000);
+  connectLED(1, 3, 1000, 1000);
 }
 
 //////////////////////////////////////////////////---LOOP---/////////////////////////////////////////////////////////////////////////
@@ -1062,6 +1438,12 @@ void setup()
 
 void loop()
 {
+  if ( needCheck == true) {
+    Serial.println("[Loop]:Get LED Signals:");
+    getCOVIDPrediction();
+  }
+
+
   //Test-Area
   /*
     Serial.println("########################################\n");
@@ -1073,6 +1455,8 @@ void loop()
     //Serial.println(binWORD(a, b, c, d));
     Serial.println("########################################\n");
     Serial.println("########################################\n");
+    connectLED(3, 1, 1000, 1000);
+    connectLED();
   */
   //connectDHT();
 
@@ -1146,6 +1530,7 @@ void loop()
         prepareTxFrame(appPort);
         LoRaWAN.send(loraWanClass);
         deviceState = DEVICE_STATE_CYCLE;
+        needCheck = true;
         break;
       }
 
@@ -1175,6 +1560,5 @@ void loop()
         break;
       }
   }
-
 
 }
